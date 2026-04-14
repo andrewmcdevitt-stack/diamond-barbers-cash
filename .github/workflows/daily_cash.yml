@@ -1,0 +1,53 @@
+name: Daily Cash Sync
+
+on:
+  schedule:
+    - cron: '30 11 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    env:
+      GHL_API_KEY:            ${{ secrets.GHL_API_KEY }}
+      GHL_LOCATION_ID:        ${{ secrets.GHL_LOCATION_ID }}
+      CI: "true"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install chromium
+          playwright install-deps chromium
+
+      - name: Write session files from secrets
+        run: |
+          mkdir -p data
+          echo "${{ secrets.NT_SESSION_JSON }}" | base64 --decode > data/session.json
+          echo "${{ secrets.CAIRNS_SESSION_JSON }}" | base64 --decode > data/session_cairns.json
+
+      - name: Fetch daily cash totals
+        run: python agent/fetch_cash.py
+
+      - name: Save refreshed sessions back to GitHub Secrets
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          if [ -f data/session.json ]; then
+            jq '{cookies: .cookies}' data/session.json > /tmp/session_slim.json
+            base64 -w 0 /tmp/session_slim.json | gh secret set NT_SESSION_JSON --repo ${{ github.repository }}
+          fi
+          if [ -f data/session_cairns.json ]; then
+            jq '{cookies: .cookies}' data/session_cairns.json > /tmp/session_cairns_slim.json
+            base64 -w 0 /tmp/session_cairns_slim.json | gh secret set CAIRNS_SESSION_JSON --repo ${{ github.repository }}
+          fi
