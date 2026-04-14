@@ -121,48 +121,42 @@ async def fetch_cash_for_account(account, context, date_str):
         try:
             # Navigate to Payments Summary
             await context.goto(
-                f"https://partners.fresha.com/reports/table/payment-summary?__pid={pid}",
+                f"https://partners.fresha.com/reports/table/payments-summary?__pid={pid}",
                 wait_until="networkidle",
             )
             await context.wait_for_timeout(3000)
 
-            # Set custom date range to today
-            try:
-                await context.get_by_text("Month to date", exact=True).first.click(timeout=8000)
-            except Exception:
-                await context.get_by_text("Last week", exact=True).first.click(timeout=8000)
-            await context.wait_for_timeout(500)
-            await context.locator('select:has(option[value="custom"])').select_option(value="custom")
-            await context.wait_for_timeout(500)
-
-            # Fill date inputs
-            date_inputs = context.locator('input[type="date"]')
-            await date_inputs.nth(0).fill(date_str)
-            await date_inputs.nth(1).fill(date_str)
-
+            # Set date to Today — copied from fetch_performance.py pattern
+            await context.get_by_text("Month to date", exact=True).first.click(timeout=10000)
+            await context.wait_for_timeout(1000)
+            await context.locator('select:has(option[value="today"])').select_option(value="today")
+            await context.wait_for_timeout(1000)
             try:
                 await context.get_by_role("button", name="Apply").click(timeout=5000)
             except Exception:
                 pass
             await context.wait_for_load_state("networkidle")
-            await context.wait_for_timeout(3000)
+            await context.wait_for_timeout(10000)
+            # Reload the confirmed URL (same as fetch_performance.py)
+            confirmed_url = context.url
+            await context.goto(confirmed_url, wait_until="networkidle")
+            await context.wait_for_timeout(5000)
 
-            # Apply location filter
+            # Apply location filter using data-qa attribute
             try:
-                filter_btn = context.get_by_role("button", name="Filters")
-                await filter_btn.click(timeout=8000)
+                await context.locator('[data-qa="open-filters-button"]').click(timeout=8000)
                 await context.wait_for_timeout(1000)
-
-                loc_option = context.get_by_text(loc_name, exact=True)
-                await loc_option.click(timeout=8000)
+                await context.get_by_text(loc_name, exact=True).first.dispatch_event('click')
                 await context.wait_for_timeout(500)
-
+                # Close the team member modal if open, then click main Apply
                 try:
-                    await context.get_by_role("button", name="Apply").click(timeout=5000)
+                    await context.locator('[data-qa="filter-options-modal-apply"]').click(timeout=2000)
+                    await context.wait_for_timeout(500)
                 except Exception:
                     pass
+                await context.locator('[data-qa="insights-apply-filters"]').click(timeout=5000)
                 await context.wait_for_load_state("networkidle")
-                await context.wait_for_timeout(3000)
+                await context.wait_for_timeout(2000)
             except Exception as e:
                 print(f"    WARNING: Could not apply location filter: {e}")
 
@@ -173,11 +167,11 @@ async def fetch_cash_for_account(account, context, date_str):
                 for row in rows:
                     text = await row.inner_text()
                     if "Cash" in text and "$" in text:
-                        # Extract the last dollar amount in the row
                         import re
-                        amounts = re.findall(r'\$[\d,]+\.?\d*', text)
+                        # Match A$ 201.38 or $201.38 or A$201.38
+                        amounts = re.findall(r'A?\$\s*[\d,]+\.?\d*', text)
                         if amounts:
-                            cash_value = float(amounts[-1].replace("$", "").replace(",", ""))
+                            cash_value = float(re.sub(r'[A$,\s]', '', amounts[-1]))
                             break
             except Exception as e:
                 print(f"    WARNING: Could not read cash row: {e}")
