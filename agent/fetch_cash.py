@@ -67,6 +67,55 @@ ACCOUNTS = [
 ]
 
 
+# ── Location name → custom value key ─────────────────────────────────────────
+
+LOCATION_CUSTOM_VALUE_KEY = {
+    "Diamond Barbers - COOLALINGA":    "fresha_cash_darwin_coolalinga",
+    "Diamond Barbers - BELLAMACK":     "fresha_cash_darwin_bellamack",
+    "Diamond Barbers - YARRAWONGA":    "fresha_cash_darwin_yarrawonga",
+    "Diamond Barbers - CASUARINA":     "fresha_cash_darwin_casuarina",
+    "Diamond Barbers - DARWIN CBD":    "fresha_cash_darwin_cbd",
+    "Diamond Barbers - PARAP":         "fresha_cash_darwin_parap",
+    "Diamond Barbers - DELUXE":        "fresha_cash_darwin_deluxe",
+    "Diamond Barbers Showgrounds":     "fresha_cash_cairns_showgrounds",
+    "Diamond Barbers Northern Beaches":"fresha_cash_cairns_northern_beaches",
+    "Diamond Barbers Night Markets":   "fresha_cash_cairns_night_markets",
+    "Diamond Barbers Wulguru":         "fresha_cash_townsville_wulguru",
+    "Diamond Barbers Rising Sun":      "fresha_cash_townsville_rising_sun",
+}
+
+
+def ghl_set_custom_value(key, value):
+    """Create or update a GHL location custom value by key name."""
+    # Search for existing custom value
+    r = requests.get(
+        f"{GHL_BASE}/locations/{GHL_LOCATION_ID}/customValues",
+        headers=GHL_HEADERS,
+    )
+    if r.status_code not in (200, 201):
+        raise Exception(f"Custom values fetch failed {r.status_code}: {r.text[:200]}")
+
+    existing = {cv["name"]: cv["id"] for cv in r.json().get("customValues", [])}
+
+    if key in existing:
+        # Update
+        r = requests.put(
+            f"{GHL_BASE}/locations/{GHL_LOCATION_ID}/customValues/{existing[key]}",
+            headers=GHL_HEADERS,
+            json={"name": key, "value": str(value)},
+        )
+    else:
+        # Create
+        r = requests.post(
+            f"{GHL_BASE}/locations/{GHL_LOCATION_ID}/customValues",
+            headers=GHL_HEADERS,
+            json={"name": key, "value": str(value)},
+        )
+
+    if r.status_code not in (200, 201):
+        raise Exception(f"Custom value set failed {r.status_code}: {r.text[:200]}")
+
+
 # ── GHL helper ────────────────────────────────────────────────────────────────
 
 def ghl_update_cash(location_name, cash_sales):
@@ -218,6 +267,15 @@ async def run():
                         print(f"    OK    {loc_name:45s}  cash=${cash:.2f}")
                 except Exception as e:
                     print(f"    ERROR {loc_name}: {e}")
+
+                # Also push as a location custom value for use in notifications
+                cv_key = LOCATION_CUSTOM_VALUE_KEY.get(loc_name)
+                if cv_key:
+                    try:
+                        ghl_set_custom_value(cv_key, f"{cash:.2f}")
+                        print(f"    CV    {cv_key}  = ${cash:.2f}")
+                    except Exception as e:
+                        print(f"    CV ERROR {loc_name}: {e}")
 
             await bctx.close()
 
