@@ -20,7 +20,6 @@ from pathlib import Path
 
 import requests
 from dotenv import load_dotenv
-from playwright.async_api import async_playwright
 
 load_dotenv()
 
@@ -333,6 +332,7 @@ async def fetch_cash_for_account(account, page, date_str, group_filter):
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 async def run(group_filter):
+    from playwright.async_api import async_playwright
     today_darwin = datetime.now(DARWIN_TZ).strftime("%Y-%m-%d")
 
     # Load any reconciliation data already written by a previous run today
