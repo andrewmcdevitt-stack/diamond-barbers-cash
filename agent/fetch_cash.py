@@ -200,6 +200,8 @@ def ghl_get_form_submissions(date_str):
             print(f"  WARNING: Form submissions fetch failed {r.status_code}: {r.text[:200]}")
             break
         data  = r.json()
+        print(f"  DEBUG raw response keys: {list(data.keys())}")
+        print(f"  DEBUG raw response (first 500 chars): {str(data)[:500]}")
         batch = data.get("submissions", [])
         submissions.extend(batch)
         if len(batch) < 100:
