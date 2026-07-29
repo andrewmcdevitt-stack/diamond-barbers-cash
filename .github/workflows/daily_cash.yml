@@ -2,16 +2,32 @@ name: Daily Cash Sync
 
 on:
   schedule:
-    - cron: '30 11 * * *'
+    - cron: '45 8 * * *'   # 6:15 PM Darwin / 6:45 PM Cairns — regular shops
+    - cron: '15 11 * * *'  # 9:15 PM Cairns — Night Markets only
+    - cron: '30 21 * * *'  # 7:00 AM Darwin (next morning) — send summary report
   workflow_dispatch:
+    inputs:
+      group:
+        description: 'What to run'
+        required: false
+        default: 'regular'
+        type: choice
+        options:
+          - regular
+          - night_markets
+          - report
 
 jobs:
+
   sync:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule != '30 21 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.group != 'report')
     runs-on: ubuntu-latest
 
     env:
-      GHL_API_KEY:            ${{ secrets.GHL_API_KEY }}
-      GHL_LOCATION_ID:        ${{ secrets.GHL_LOCATION_ID }}
+      GHL_API_KEY:     ${{ secrets.GHL_API_KEY }}
+      GHL_LOCATION_ID: ${{ secrets.GHL_LOCATION_ID }}
       CI: "true"
 
     steps:
@@ -31,12 +47,33 @@ jobs:
 
       - name: Write session files from secrets
         run: |
-          mkdir -p data
+          mkdir -p data/reconciliation
           echo "${{ secrets.NT_SESSION_JSON }}" | base64 --decode > data/session.json
           echo "${{ secrets.CAIRNS_SESSION_JSON }}" | base64 --decode > data/session_cairns.json
 
-      - name: Fetch daily cash totals
-        run: python agent/fetch_cash.py
+      - name: Determine group
+        id: group
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "group=${{ github.event.inputs.group }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event.schedule }}" = "15 11 * * *" ]; then
+            echo "group=night_markets" >> $GITHUB_OUTPUT
+          else
+            echo "group=regular" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch daily cash totals and build reconciliation
+        run: python agent/fetch_cash.py --group ${{ steps.group.outputs.group }}
+
+      - name: Commit reconciliation data
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions"
+          git add data/reconciliation/
+          git diff --staged --quiet && echo "No changes." || (
+            git commit -m "chore: cash reconciliation $(date -u +'%Y-%m-%d') [${{ steps.group.outputs.group }}]" &&
+            git push
+          )
 
       - name: Save refreshed sessions back to GitHub Secrets
         if: always()
@@ -51,3 +88,28 @@ jobs:
             jq '{cookies: .cookies}' data/session_cairns.json > /tmp/session_cairns_slim.json
             base64 -w 0 /tmp/session_cairns_slim.json | gh secret set CAIRNS_SESSION_JSON --repo ${{ github.repository }}
           fi
+
+  morning_report:
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '30 21 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.group == 'report')
+    runs-on: ubuntu-latest
+
+    env:
+      EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+      EMAIL_HOST:     ${{ secrets.EMAIL_HOST }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Send morning reconciliation report
+        run: python agent/send_cash_report.py

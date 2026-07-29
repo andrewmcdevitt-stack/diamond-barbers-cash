@@ -2,17 +2,19 @@
 fetch_cash.py
 -------------
 Opens Fresha Payments Summary for today, filters by each location,
-reads the Cash row total, and pushes it to the GHL location_performance
-custom object as cash_sales.
+reads the Cash row total, pushes to GHL custom values, and saves
+reconciliation data to data/reconciliation/YYYY-MM-DD.json.
 
-Run with:  python agent/fetch_cash.py
+Run with:  python agent/fetch_cash.py [--group regular|night_markets]
 Requires:  data/session.json        (NT Fresha session)
            data/session_cairns.json (QLD Fresha session)
 """
 
+import argparse
 import asyncio
 import json
 import os
+import re
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -22,7 +24,9 @@ from playwright.async_api import async_playwright
 
 load_dotenv()
 
-DATA_DIR = Path(__file__).parent.parent / "data"
+DATA_DIR  = Path(__file__).parent.parent / "data"
+RECON_DIR = DATA_DIR / "reconciliation"
+RECON_DIR.mkdir(parents=True, exist_ok=True)
 
 GHL_API_KEY     = os.environ["GHL_API_KEY"]
 GHL_LOCATION_ID = os.environ["GHL_LOCATION_ID"]
@@ -34,40 +38,46 @@ GHL_HEADERS     = {
     "Content-Type":  "application/json",
 }
 
-# All locations to fetch cash for, grouped by Fresha account
+FORM_ID   = "3NbAwhSXgRjJFJNX0diN"
+DARWIN_TZ = timezone(timedelta(hours=9, minutes=30))
+CAIRNS_TZ = timezone(timedelta(hours=10))
+
 ACCOUNTS = [
     {
         "label":       "NT (Darwin + Parap)",
         "session":     DATA_DIR / "session.json",
         "provider_id": "1371504",
-        "timezone":    timezone(timedelta(hours=9, minutes=30)),
+        "timezone":    DARWIN_TZ,
         "locations": [
-            "Diamond Barbers - COOLALINGA",
-            "Diamond Barbers - BELLAMACK",
-            "Diamond Barbers - YARRAWONGA",
-            "Diamond Barbers - CASUARINA",
-            "Diamond Barbers - DARWIN CBD",
-            "Diamond Barbers - PARAP",
-            "Diamond Barbers - DELUXE",
+            {"name": "Diamond Barbers - COOLALINGA",    "group": "regular"},
+            {"name": "Diamond Barbers - BELLAMACK",     "group": "regular"},
+            {"name": "Diamond Barbers - YARRAWONGA",    "group": "regular"},
+            {"name": "Diamond Barbers - CASUARINA",     "group": "regular"},
+            {"name": "Diamond Barbers - DARWIN CBD",    "group": "regular"},
+            {"name": "Diamond Barbers - PARAP",         "group": "regular"},
+            {"name": "Diamond Barbers - DELUXE",        "group": "regular"},
         ],
     },
     {
         "label":       "QLD (Cairns)",
         "session":     DATA_DIR / "session_cairns.json",
         "provider_id": "1390965",
-        "timezone":    timezone(timedelta(hours=10)),
+        "timezone":    CAIRNS_TZ,
         "locations": [
-            "Diamond Barbers Rising Sun",
-            "Diamond Barbers Showgrounds",
-            "Diamond Barbers Northern Beaches",
-            "Diamond Barbers Night Markets",
-            "Diamond Barbers Wulguru",
+            {"name": "Diamond Barbers Rising Sun",       "group": "regular"},
+            {"name": "Diamond Barbers Showgrounds",      "group": "regular"},
+            {"name": "Diamond Barbers Northern Beaches", "group": "regular"},
+            {"name": "Diamond Barbers Night Markets",    "group": "night_markets"},
+            {"name": "Diamond Barbers Wulguru",          "group": "regular"},
         ],
     },
 ]
 
-
-# ── Location name → custom value key ─────────────────────────────────────────
+ALL_LOCATION_NAMES = {
+    loc["name"]
+    for acct in ACCOUNTS
+    for loc in acct["locations"]
+}
 
 LOCATION_CUSTOM_VALUE_KEY = {
     "Diamond Barbers - COOLALINGA":    "fresha_cash_darwin_coolalinga",
@@ -85,41 +95,53 @@ LOCATION_CUSTOM_VALUE_KEY = {
 }
 
 
+# ── Reconciliation JSON ───────────────────────────────────────────────────────
+
+def recon_path(date_str):
+    return RECON_DIR / f"{date_str}.json"
+
+
+def load_recon(date_str):
+    p = recon_path(date_str)
+    if p.exists():
+        try:
+            return json.loads(p.read_text())
+        except Exception:
+            pass
+    return {"date": date_str, "locations": {}}
+
+
+def save_recon(date_str, data):
+    recon_path(date_str).write_text(json.dumps(data, indent=2))
+
+
+# ── GHL helpers ───────────────────────────────────────────────────────────────
+
 def ghl_set_custom_value(key, value):
-    """Create or update a GHL location custom value by key name."""
-    # Search for existing custom value
     r = requests.get(
         f"{GHL_BASE}/locations/{GHL_LOCATION_ID}/customValues",
         headers=GHL_HEADERS,
     )
     if r.status_code not in (200, 201):
         raise Exception(f"Custom values fetch failed {r.status_code}: {r.text[:200]}")
-
     existing = {cv["name"]: cv["id"] for cv in r.json().get("customValues", [])}
-
     if key in existing:
-        # Update
         r = requests.put(
             f"{GHL_BASE}/locations/{GHL_LOCATION_ID}/customValues/{existing[key]}",
             headers=GHL_HEADERS,
             json={"name": key, "value": str(value)},
         )
     else:
-        # Create
         r = requests.post(
             f"{GHL_BASE}/locations/{GHL_LOCATION_ID}/customValues",
             headers=GHL_HEADERS,
             json={"name": key, "value": str(value)},
         )
-
     if r.status_code not in (200, 201):
         raise Exception(f"Custom value set failed {r.status_code}: {r.text[:200]}")
 
 
-# ── GHL helper ────────────────────────────────────────────────────────────────
-
 def ghl_update_cash(location_name, cash_sales):
-    """Find the most recent location_performance record and update cash_sales."""
     r = requests.post(
         f"{GHL_BASE}/objects/custom_objects.location_performance/records/search",
         headers=GHL_HEADERS,
@@ -134,12 +156,9 @@ def ghl_update_cash(location_name, cash_sales):
     )
     if r.status_code not in (200, 201):
         raise Exception(f"Search failed {r.status_code}: {r.text[:200]}")
-
     records = r.json().get("records", [])
     if not records:
         return "no_record"
-
-    # Use the most recent record
     record_id = records[0]["id"]
     r = requests.put(
         f"{GHL_BASE}/objects/custom_objects.location_performance/records/{record_id}",
@@ -152,15 +171,93 @@ def ghl_update_cash(location_name, cash_sales):
     raise Exception(f"GHL {r.status_code}: {r.text[:200]}")
 
 
+def ghl_get_form_submissions(date_str):
+    """Read all Cash Reconciliation form submissions for a given Darwin-date."""
+    # Window: midnight to midnight Darwin time on date_str
+    day_start = datetime.strptime(date_str, "%Y-%m-%d").replace(
+        tzinfo=DARWIN_TZ, hour=0, minute=0, second=0, microsecond=0
+    )
+    day_end  = day_start + timedelta(days=1)
+    start_ms = int(day_start.astimezone(timezone.utc).timestamp() * 1000)
+    end_ms   = int(day_end.astimezone(timezone.utc).timestamp() * 1000)
+
+    submissions = []
+    page = 1
+    while True:
+        r = requests.get(
+            f"{GHL_BASE}/forms/submissions",
+            headers=GHL_HEADERS,
+            params={
+                "locationId": GHL_LOCATION_ID,
+                "formId":     FORM_ID,
+                "startAt":    start_ms,
+                "endAt":      end_ms,
+                "page":       page,
+                "limit":      100,
+            },
+        )
+        if r.status_code not in (200, 201):
+            print(f"  WARNING: Form submissions fetch failed {r.status_code}: {r.text[:200]}")
+            break
+        data  = r.json()
+        batch = data.get("submissions", [])
+        submissions.extend(batch)
+        if len(batch) < 100:
+            break
+        page += 1
+
+    print(f"  Found {len(submissions)} form submission(s) for {date_str}")
+    return submissions
+
+
+def parse_submission(sub):
+    """Extract (location_name, counted_cash, submitted_at) from a GHL form submission."""
+    form_data    = sub.get("formData", {})
+    location     = None
+    counted_cash = None
+    submitted_at = sub.get("createdAt")
+
+    print(f"    Raw formData: {form_data}")
+
+    for key, val in form_data.items():
+        if isinstance(val, str) and val.strip() in ALL_LOCATION_NAMES:
+            location = val.strip()
+            continue
+        key_lower = key.lower()
+        if any(x in key_lower for x in ("cash", "counted", "amount", "till")):
+            try:
+                counted_cash = float(re.sub(r"[^\d.]", "", str(val)))
+            except (ValueError, TypeError):
+                pass
+
+    # Fallback: first parseable numeric value that isn't the location field
+    if location and counted_cash is None:
+        for key, val in form_data.items():
+            if isinstance(val, str) and val.strip() in ALL_LOCATION_NAMES:
+                continue
+            try:
+                v = float(re.sub(r"[^\d.]", "", str(val)))
+                if v >= 0:
+                    counted_cash = v
+                    break
+            except (ValueError, TypeError):
+                pass
+
+    return location, counted_cash, submitted_at
+
+
 # ── Fresha cash fetch ─────────────────────────────────────────────────────────
 
-async def fetch_cash_for_account(account, context, date_str):
+async def fetch_cash_for_account(account, page, date_str, group_filter):
     label     = account["label"]
     pid       = account["provider_id"]
-    locations = account["locations"]
+    locations = [loc["name"] for loc in account["locations"] if loc["group"] == group_filter]
+
+    if not locations:
+        return {}
 
     print(f"\n{'='*60}")
-    print(f"ACCOUNT: {label}  —  date: {date_str}")
+    print(f"ACCOUNT: {label}  —  date: {date_str}  —  group: {group_filter}")
     print(f"{'='*60}")
 
     results = {}
@@ -168,56 +265,48 @@ async def fetch_cash_for_account(account, context, date_str):
     for loc_name in locations:
         print(f"\n  -- {loc_name} --")
         try:
-            # Navigate to Payments Summary
-            await context.goto(
+            await page.goto(
                 f"https://partners.fresha.com/reports/table/payments-summary?__pid={pid}",
                 wait_until="networkidle",
             )
-            await context.wait_for_timeout(3000)
+            await page.wait_for_timeout(3000)
 
-            # Set date to Today — copied from fetch_performance.py pattern
-            await context.get_by_text("Month to date", exact=True).first.click(timeout=10000)
-            await context.wait_for_timeout(1000)
-            await context.locator('select:has(option[value="today"])').select_option(value="today")
-            await context.wait_for_timeout(1000)
+            await page.get_by_text("Month to date", exact=True).first.click(timeout=10000)
+            await page.wait_for_timeout(1000)
+            await page.locator('select:has(option[value="today"])').select_option(value="today")
+            await page.wait_for_timeout(1000)
             try:
-                await context.get_by_role("button", name="Apply").click(timeout=5000)
+                await page.get_by_role("button", name="Apply").click(timeout=5000)
             except Exception:
                 pass
-            await context.wait_for_load_state("networkidle")
-            await context.wait_for_timeout(10000)
-            # Reload the confirmed URL (same as fetch_performance.py)
-            confirmed_url = context.url
-            await context.goto(confirmed_url, wait_until="networkidle")
-            await context.wait_for_timeout(5000)
+            await page.wait_for_load_state("networkidle")
+            await page.wait_for_timeout(10000)
+            confirmed_url = page.url
+            await page.goto(confirmed_url, wait_until="networkidle")
+            await page.wait_for_timeout(5000)
 
-            # Apply location filter using data-qa attribute
             try:
-                await context.locator('[data-qa="open-filters-button"]').click(timeout=8000)
-                await context.wait_for_timeout(1000)
-                await context.get_by_text(loc_name, exact=True).first.dispatch_event('click')
-                await context.wait_for_timeout(500)
-                # Close the team member modal if open, then click main Apply
+                await page.locator('[data-qa="open-filters-button"]').click(timeout=8000)
+                await page.wait_for_timeout(1000)
+                await page.get_by_text(loc_name, exact=True).first.dispatch_event('click')
+                await page.wait_for_timeout(500)
                 try:
-                    await context.locator('[data-qa="filter-options-modal-apply"]').click(timeout=2000)
-                    await context.wait_for_timeout(500)
+                    await page.locator('[data-qa="filter-options-modal-apply"]').click(timeout=2000)
+                    await page.wait_for_timeout(500)
                 except Exception:
                     pass
-                await context.locator('[data-qa="insights-apply-filters"]').click(timeout=5000)
-                await context.wait_for_load_state("networkidle")
-                await context.wait_for_timeout(2000)
+                await page.locator('[data-qa="insights-apply-filters"]').click(timeout=5000)
+                await page.wait_for_load_state("networkidle")
+                await page.wait_for_timeout(2000)
             except Exception as e:
                 print(f"    WARNING: Could not apply location filter: {e}")
 
-            # Find Cash row in the table
             cash_value = 0.0
             try:
-                rows = await context.locator("tr").all()
+                rows = await page.locator("tr").all()
                 for row in rows:
                     text = await row.inner_text()
                     if "Cash" in text and "$" in text:
-                        import re
-                        # Match A$ 201.38 or $201.38 or A$201.38
                         amounts = re.findall(r'A?\$\s*[\d,]+\.?\d*', text)
                         if amounts:
                             cash_value = float(re.sub(r'[A$,\s]', '', amounts[-1]))
@@ -237,7 +326,25 @@ async def fetch_cash_for_account(account, context, date_str):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-async def run():
+async def run(group_filter):
+    today_darwin = datetime.now(DARWIN_TZ).strftime("%Y-%m-%d")
+
+    # Load any reconciliation data already written by a previous run today
+    recon = load_recon(today_darwin)
+
+    # Read today's form submissions
+    submissions  = ghl_get_form_submissions(today_darwin)
+    # Build map: location_name -> latest submission {counted, submitted_at}
+    submission_map = {}
+    for sub in submissions:
+        loc, cash, ts = parse_submission(sub)
+        if loc and cash is not None:
+            if loc not in submission_map or (ts or "") > (submission_map[loc]["submitted_at"] or ""):
+                submission_map[loc] = {"counted": cash, "submitted_at": ts}
+            print(f"  Submission: {loc} = ${cash:.2f} at {ts}")
+        else:
+            print(f"  WARNING: Could not parse submission id={sub.get('id')} (loc={loc}, cash={cash})")
+
     async with async_playwright() as p:
         for account in ACCOUNTS:
             session_file = account["session"]
@@ -245,30 +352,38 @@ async def run():
                 print(f"WARNING: {session_file.name} not found — skipping {account['label']}.")
                 continue
 
-            tz       = account["timezone"]
-            today    = datetime.now(tz).strftime("%Y-%m-%d")
+            tz    = account["timezone"]
+            today = datetime.now(tz).strftime("%Y-%m-%d")
 
             bctx    = await p.chromium.launch(headless=True)
             context = await bctx.new_context(storage_state=str(session_file))
             page    = await context.new_page()
 
-            cash_results = await fetch_cash_for_account(account, page, today)
+            cash_results = await fetch_cash_for_account(account, page, today, group_filter)
 
             print(f"\n  Pushing cash data to GHL...")
             for loc_name, cash in cash_results.items():
                 if cash is None:
                     print(f"    SKIP  {loc_name}  (error reading cash)")
+                    # Still record fetch error in reconciliation
+                    sub_data = submission_map.get(loc_name, {})
+                    recon["locations"][loc_name] = {
+                        "fresha_expected": None,
+                        "counted":         sub_data.get("counted"),
+                        "variance":        None,
+                        "submitted_at":    sub_data.get("submitted_at"),
+                        "status":          "fetch_error",
+                    }
                     continue
+
+                # Push to GHL
                 try:
                     result = ghl_update_cash(loc_name, cash)
-                    if result == "no_record":
-                        print(f"    SKIP  {loc_name}  (no GHL record)")
-                    else:
-                        print(f"    OK    {loc_name:45s}  cash=${cash:.2f}")
+                    status = "no_record" if result == "no_record" else "updated"
+                    print(f"    {'SKIP' if result == 'no_record' else 'OK  '}  {loc_name:45s}  cash=${cash:.2f}")
                 except Exception as e:
                     print(f"    ERROR {loc_name}: {e}")
 
-                # Also push as a location custom value for use in notifications
                 cv_key = LOCATION_CUSTOM_VALUE_KEY.get(loc_name)
                 if cv_key:
                     try:
@@ -277,10 +392,54 @@ async def run():
                     except Exception as e:
                         print(f"    CV ERROR {loc_name}: {e}")
 
+                # Build reconciliation entry
+                sub_data = submission_map.get(loc_name, {})
+                counted  = sub_data.get("counted")
+                variance = round(counted - cash, 2) if counted is not None else None
+                recon["locations"][loc_name] = {
+                    "fresha_expected": cash,
+                    "counted":         counted,
+                    "variance":        variance,
+                    "submitted_at":    sub_data.get("submitted_at"),
+                    "status": (
+                        "not_submitted" if counted is None
+                        else "match"    if variance == 0.0
+                        else "variance"
+                    ),
+                }
+
             await bctx.close()
 
-    print("\nDone.")
+    # Record any locations in this group that weren't reached (session missing etc.)
+    group_locs = {
+        loc["name"]
+        for acct in ACCOUNTS
+        for loc in acct["locations"]
+        if loc["group"] == group_filter
+    }
+    for loc_name in group_locs:
+        if loc_name not in recon["locations"]:
+            sub_data = submission_map.get(loc_name, {})
+            recon["locations"][loc_name] = {
+                "fresha_expected": None,
+                "counted":         sub_data.get("counted"),
+                "variance":        None,
+                "submitted_at":    sub_data.get("submitted_at"),
+                "status":          "fetch_error",
+            }
+
+    save_recon(today_darwin, recon)
+    print(f"\nReconciliation saved: {recon_path(today_darwin)}")
+    print("Done.")
 
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--group",
+        choices=["regular", "night_markets"],
+        default="regular",
+        help="Which group of locations to process",
+    )
+    args = parser.parse_args()
+    asyncio.run(run(args.group))
