@@ -31,10 +31,10 @@
     },
     "Diamond Barbers - DARWIN CBD": {
       "fresha_expected": 0.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 304.25,
+      "variance": 304.25,
+      "submitted_at": "2026-07-29T22:40:38.018Z",
+      "status": "variance"
     },
     "Diamond Barbers - PARAP": {
       "fresha_expected": 0.0,
