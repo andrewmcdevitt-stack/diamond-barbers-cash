@@ -3,31 +3,31 @@
   "locations": {
     "Diamond Barbers - COOLALINGA": {
       "fresha_expected": 58.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 258.0,
+      "variance": 200.0,
+      "submitted_at": "2026-07-29T08:34:24.025Z",
+      "status": "variance"
     },
     "Diamond Barbers - BELLAMACK": {
       "fresha_expected": 0.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 200.0,
+      "variance": 200.0,
+      "submitted_at": "2026-07-29T08:21:21.771Z",
+      "status": "variance"
     },
     "Diamond Barbers - YARRAWONGA": {
       "fresha_expected": 100.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 300.0,
+      "variance": 200.0,
+      "submitted_at": "2026-07-29T08:47:21.133Z",
+      "status": "variance"
     },
     "Diamond Barbers - CASUARINA": {
       "fresha_expected": 175.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 290.0,
+      "variance": 115.0,
+      "submitted_at": "2026-07-28T23:37:39.147Z",
+      "status": "variance"
     },
     "Diamond Barbers - DARWIN CBD": {
       "fresha_expected": 70.0,
