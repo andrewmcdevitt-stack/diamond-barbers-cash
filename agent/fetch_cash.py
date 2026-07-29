@@ -456,7 +456,9 @@ def reprocess(date_str):
                 submission_map[loc] = {"counted": cash, "submitted_at": ts}
             print(f"  Submission: {loc} = ${cash:.2f} at {ts}")
         else:
+            others = sub.get("others", {})
             print(f"  WARNING: Could not parse submission id={sub.get('id')} (loc={loc}, cash={cash})")
+            print(f"    subloc_field={others.get(FIELD_SUBLOC)!r}  str_vals={ {k:v for k,v in others.items() if isinstance(v,str) and len(str(v))<50} }")
 
     for loc_name, entry in recon["locations"].items():
         sub_data = submission_map.get(loc_name)
