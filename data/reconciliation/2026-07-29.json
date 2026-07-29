@@ -2,53 +2,53 @@
   "date": "2026-07-29",
   "locations": {
     "Diamond Barbers - COOLALINGA": {
-      "fresha_expected": null,
+      "fresha_expected": 18.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "fetch_error"
+      "status": "not_submitted"
     },
     "Diamond Barbers - BELLAMACK": {
-      "fresha_expected": null,
+      "fresha_expected": 0.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "fetch_error"
+      "status": "not_submitted"
     },
     "Diamond Barbers - YARRAWONGA": {
-      "fresha_expected": null,
+      "fresha_expected": 50.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "fetch_error"
+      "status": "not_submitted"
     },
     "Diamond Barbers - CASUARINA": {
-      "fresha_expected": null,
+      "fresha_expected": 135.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "fetch_error"
+      "status": "not_submitted"
     },
     "Diamond Barbers - DARWIN CBD": {
-      "fresha_expected": null,
+      "fresha_expected": 0.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "fetch_error"
+      "status": "not_submitted"
     },
     "Diamond Barbers - PARAP": {
-      "fresha_expected": null,
+      "fresha_expected": 70.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "fetch_error"
+      "status": "not_submitted"
     },
     "Diamond Barbers - DELUXE": {
-      "fresha_expected": null,
+      "fresha_expected": 0.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "fetch_error"
+      "status": "not_submitted"
     },
     "Diamond Barbers Rising Sun": {
       "fresha_expected": 0.0,
@@ -65,11 +65,11 @@
       "status": "not_submitted"
     },
     "Diamond Barbers Northern Beaches": {
-      "fresha_expected": 90.0,
+      "fresha_expected": null,
       "counted": null,
       "variance": null,
       "submitted_at": null,
-      "status": "not_submitted"
+      "status": "fetch_error"
     },
     "Diamond Barbers Wulguru": {
       "fresha_expected": 50.0,
