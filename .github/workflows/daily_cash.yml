@@ -16,8 +16,9 @@ on:
           - regular
           - night_markets
           - report
+          - reprocess
       report_date:
-        description: 'Date for report (YYYY-MM-DD). Leave blank for yesterday.'
+        description: 'Date for report or reprocess (YYYY-MM-DD). Leave blank for yesterday.'
         required: false
         default: ''
 
@@ -26,7 +27,7 @@ jobs:
   sync:
     if: |
       (github.event_name == 'schedule' && github.event.schedule != '30 21 * * *') ||
-      (github.event_name == 'workflow_dispatch' && github.event.inputs.group != 'report')
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.group != 'report' && github.event.inputs.group != 'reprocess')
     runs-on: ubuntu-latest
 
     env:
@@ -94,6 +95,46 @@ jobs:
             jq '{cookies: .cookies}' data/session_cairns.json > /tmp/session_cairns_slim.json
             base64 -w 0 /tmp/session_cairns_slim.json | gh secret set CAIRNS_SESSION_JSON --repo ${{ github.repository }}
           fi
+
+  reprocess:
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.group == 'reprocess'
+    runs-on: ubuntu-latest
+
+    env:
+      GHL_API_KEY:     ${{ secrets.GHL_API_KEY }}
+      GHL_LOCATION_ID: ${{ secrets.GHL_LOCATION_ID }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests python-dotenv
+
+      - name: Re-process submissions for date
+        run: |
+          DATE="${{ github.event.inputs.report_date }}"
+          if [ -z "$DATE" ]; then
+            DATE=$(date -u -d 'yesterday' +'%Y-%m-%d')
+          fi
+          python agent/fetch_cash.py --reprocess "$DATE"
+
+      - name: Commit updated recon file
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "GitHub Actions"
+          git add data/reconciliation/
+          git diff --staged --quiet && echo "No changes." || (
+            git commit -m "chore: reprocess submissions ${{ github.event.inputs.report_date }}" &&
+            git push
+          )
 
   morning_report:
     if: |

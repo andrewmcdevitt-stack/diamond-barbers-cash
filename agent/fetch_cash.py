@@ -439,6 +439,45 @@ async def run(group_filter):
     print("Done.")
 
 
+def reprocess(date_str):
+    """Re-read GHL submissions for a past date and patch the existing recon file."""
+    recon = load_recon(date_str)
+    if not recon.get("locations"):
+        print(f"No recon file found for {date_str} — nothing to patch.")
+        return
+
+    print(f"Re-processing submissions for {date_str}...")
+    submissions = ghl_get_form_submissions(date_str)
+    submission_map = {}
+    for sub in submissions:
+        loc, cash, ts = parse_submission(sub)
+        if loc and cash is not None:
+            if loc not in submission_map or (ts or "") > (submission_map[loc]["submitted_at"] or ""):
+                submission_map[loc] = {"counted": cash, "submitted_at": ts}
+            print(f"  Submission: {loc} = ${cash:.2f} at {ts}")
+        else:
+            print(f"  WARNING: Could not parse submission id={sub.get('id')} (loc={loc}, cash={cash})")
+
+    for loc_name, entry in recon["locations"].items():
+        sub_data = submission_map.get(loc_name)
+        if sub_data:
+            fresha  = entry.get("fresha_expected")
+            counted = sub_data["counted"]
+            variance = round(counted - fresha, 2) if fresha is not None else None
+            entry["counted"]      = counted
+            entry["submitted_at"] = sub_data["submitted_at"]
+            entry["variance"]     = variance
+            entry["status"] = (
+                "match"    if variance == 0.0
+                else "variance" if variance is not None
+                else "not_submitted"
+            )
+            print(f"  Updated {loc_name}: counted=${counted}, variance={variance}, status={entry['status']}")
+
+    save_recon(date_str, recon)
+    print(f"Recon file updated: {recon_path(date_str)}")
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -447,5 +486,13 @@ if __name__ == "__main__":
         default="regular",
         help="Which group of locations to process",
     )
+    parser.add_argument(
+        "--reprocess",
+        metavar="YYYY-MM-DD",
+        help="Re-read GHL submissions for a past date and patch its recon file (no Fresha scrape).",
+    )
     args = parser.parse_args()
-    asyncio.run(run(args.group))
+    if args.reprocess:
+        reprocess(args.reprocess)
+    else:
+        asyncio.run(run(args.group))
