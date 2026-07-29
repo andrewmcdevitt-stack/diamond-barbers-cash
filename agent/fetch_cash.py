@@ -214,14 +214,14 @@ def ghl_get_form_submissions(date_str):
 
 def parse_submission(sub):
     """Extract (location_name, counted_cash, submitted_at) from a GHL form submission."""
-    form_data    = sub.get("formData", {})
+    others       = sub.get("others", {})
     location     = None
     counted_cash = None
     submitted_at = sub.get("createdAt")
 
-    print(f"    Raw formData: {form_data}")
+    print(f"    Raw others: {json.dumps(others, indent=2, default=str)}")
 
-    for key, val in form_data.items():
+    for key, val in others.items():
         if isinstance(val, str) and val.strip() in ALL_LOCATION_NAMES:
             location = val.strip()
             continue
@@ -229,19 +229,6 @@ def parse_submission(sub):
         if any(x in key_lower for x in ("cash", "counted", "amount", "till")):
             try:
                 counted_cash = float(re.sub(r"[^\d.]", "", str(val)))
-            except (ValueError, TypeError):
-                pass
-
-    # Fallback: first parseable numeric value that isn't the location field
-    if location and counted_cash is None:
-        for key, val in form_data.items():
-            if isinstance(val, str) and val.strip() in ALL_LOCATION_NAMES:
-                continue
-            try:
-                v = float(re.sub(r"[^\d.]", "", str(val)))
-                if v >= 0:
-                    counted_cash = v
-                    break
             except (ValueError, TypeError):
                 pass
 
