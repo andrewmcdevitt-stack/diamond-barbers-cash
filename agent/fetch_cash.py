@@ -264,61 +264,74 @@ async def fetch_cash_for_account(account, page, date_str, group_filter):
 
     for loc_name in locations:
         print(f"\n  -- {loc_name} --")
-        try:
-            await page.goto(
-                f"https://partners.fresha.com/reports/table/payments-summary?__pid={pid}",
-                wait_until="networkidle",
-            )
-            await page.wait_for_timeout(3000)
-
-            await page.get_by_text("Month to date", exact=True).first.click(timeout=10000)
-            await page.wait_for_timeout(1000)
-            await page.locator('select:has(option[value="today"])').select_option(value="today")
-            await page.wait_for_timeout(1000)
+        success = False
+        for attempt in range(1, 4):
+            if attempt > 1:
+                print(f"    Retry {attempt}/3...")
+                await page.wait_for_timeout(3000)
             try:
-                await page.get_by_role("button", name="Apply").click(timeout=5000)
-            except Exception:
-                pass
-            await page.wait_for_load_state("networkidle")
-            await page.wait_for_timeout(10000)
-            confirmed_url = page.url
-            await page.goto(confirmed_url, wait_until="networkidle")
-            await page.wait_for_timeout(5000)
+                await page.goto(
+                    f"https://partners.fresha.com/reports/table/payments-summary?__pid={pid}",
+                    wait_until="networkidle",
+                )
+                await page.wait_for_timeout(3000)
 
-            try:
-                await page.locator('[data-qa="open-filters-button"]').click(timeout=8000)
+                await page.get_by_text("Month to date", exact=True).first.click(timeout=10000)
                 await page.wait_for_timeout(1000)
-                await page.get_by_text(loc_name, exact=True).first.dispatch_event('click')
-                await page.wait_for_timeout(500)
+                await page.locator('select:has(option[value="today"])').select_option(value="today")
+                await page.wait_for_timeout(1000)
                 try:
-                    await page.locator('[data-qa="filter-options-modal-apply"]').click(timeout=2000)
-                    await page.wait_for_timeout(500)
+                    await page.get_by_role("button", name="Apply").click(timeout=5000)
                 except Exception:
                     pass
-                await page.locator('[data-qa="insights-apply-filters"]').click(timeout=5000)
                 await page.wait_for_load_state("networkidle")
-                await page.wait_for_timeout(2000)
+                await page.wait_for_timeout(10000)
+                confirmed_url = page.url
+                await page.goto(confirmed_url, wait_until="networkidle")
+                await page.wait_for_timeout(5000)
+
+                try:
+                    await page.locator('[data-qa="open-filters-button"]').click(timeout=8000)
+                    await page.wait_for_timeout(1000)
+                    loc_el = page.get_by_text(loc_name, exact=True).first
+                    await loc_el.scroll_into_view_if_needed()
+                    await page.wait_for_timeout(500)
+                    await loc_el.dispatch_event('click')
+                    await page.wait_for_timeout(500)
+                    try:
+                        await page.locator('[data-qa="filter-options-modal-apply"]').click(timeout=2000)
+                        await page.wait_for_timeout(500)
+                    except Exception:
+                        pass
+                    await page.locator('[data-qa="insights-apply-filters"]').click(timeout=5000)
+                    await page.wait_for_load_state("networkidle")
+                    await page.wait_for_timeout(2000)
+                except Exception as e:
+                    print(f"    WARNING: Could not apply location filter: {e}")
+
+                cash_value = 0.0
+                try:
+                    rows = await page.locator("tr").all()
+                    for row in rows:
+                        text = await row.inner_text()
+                        if "Cash" in text and "$" in text:
+                            amounts = re.findall(r'A?\$\s*[\d,]+\.?\d*', text)
+                            if amounts:
+                                cash_value = float(re.sub(r'[A$,\s]', '', amounts[-1]))
+                                break
+                except Exception as e:
+                    print(f"    WARNING: Could not read cash row: {e}")
+
+                print(f"    Cash: ${cash_value:.2f}")
+                results[loc_name] = cash_value
+                success = True
+                break
+
             except Exception as e:
-                print(f"    WARNING: Could not apply location filter: {e}")
+                print(f"    ERROR (attempt {attempt}/3): {e}")
 
-            cash_value = 0.0
-            try:
-                rows = await page.locator("tr").all()
-                for row in rows:
-                    text = await row.inner_text()
-                    if "Cash" in text and "$" in text:
-                        amounts = re.findall(r'A?\$\s*[\d,]+\.?\d*', text)
-                        if amounts:
-                            cash_value = float(re.sub(r'[A$,\s]', '', amounts[-1]))
-                            break
-            except Exception as e:
-                print(f"    WARNING: Could not read cash row: {e}")
-
-            print(f"    Cash: ${cash_value:.2f}")
-            results[loc_name] = cash_value
-
-        except Exception as e:
-            print(f"    ERROR: {e}")
+        if not success:
+            print(f"    FAILED after 3 attempts: {loc_name}")
             results[loc_name] = None
 
     return results
