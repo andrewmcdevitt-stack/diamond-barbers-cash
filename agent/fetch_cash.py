@@ -178,8 +178,8 @@ def ghl_get_form_submissions(date_str):
         tzinfo=DARWIN_TZ, hour=0, minute=0, second=0, microsecond=0
     )
     day_end  = day_start + timedelta(days=1)
-    start_ms = int(day_start.astimezone(timezone.utc).timestamp() * 1000)
-    end_ms   = int(day_end.astimezone(timezone.utc).timestamp() * 1000)
+    start_iso = day_start.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    end_iso   = day_end.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
 
     submissions = []
     page = 1
@@ -190,8 +190,8 @@ def ghl_get_form_submissions(date_str):
             params={
                 "locationId": GHL_LOCATION_ID,
                 "formId":     FORM_ID,
-                "startAt":    start_ms,
-                "endAt":      end_ms,
+                "startAt":    start_iso,
+                "endAt":      end_iso,
                 "page":       page,
                 "limit":      100,
             },
@@ -292,11 +292,8 @@ async def fetch_cash_for_account(account, page, date_str, group_filter):
 
                 try:
                     await page.locator('[data-qa="open-filters-button"]').click(timeout=8000)
-                    await page.wait_for_timeout(1000)
-                    loc_el = page.get_by_text(loc_name, exact=True).first
-                    await loc_el.scroll_into_view_if_needed()
-                    await page.wait_for_timeout(500)
-                    await loc_el.dispatch_event('click')
+                    await page.wait_for_timeout(1500)
+                    await page.get_by_text(loc_name, exact=True).first.dispatch_event('click')
                     await page.wait_for_timeout(500)
                     try:
                         await page.locator('[data-qa="filter-options-modal-apply"]').click(timeout=2000)
