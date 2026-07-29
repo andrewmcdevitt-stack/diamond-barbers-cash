@@ -16,7 +16,7 @@
       "status": "not_submitted"
     },
     "Diamond Barbers - YARRAWONGA": {
-      "fresha_expected": 50.0,
+      "fresha_expected": 100.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
@@ -37,7 +37,7 @@
       "status": "not_submitted"
     },
     "Diamond Barbers - PARAP": {
-      "fresha_expected": 110.0,
+      "fresha_expected": 155.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
@@ -58,7 +58,7 @@
       "status": "not_submitted"
     },
     "Diamond Barbers Showgrounds": {
-      "fresha_expected": 125.0,
+      "fresha_expected": 0.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
@@ -72,7 +72,7 @@
       "status": "not_submitted"
     },
     "Diamond Barbers Wulguru": {
-      "fresha_expected": 90.0,
+      "fresha_expected": 115.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
