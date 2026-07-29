@@ -16,6 +16,10 @@ on:
           - regular
           - night_markets
           - report
+      report_date:
+        description: 'Date for report (YYYY-MM-DD). Leave blank for yesterday.'
+        required: false
+        default: ''
 
 jobs:
 
@@ -114,4 +118,9 @@ jobs:
         run: pip install requests python-dotenv
 
       - name: Send morning reconciliation report
-        run: python agent/send_cash_report.py
+        run: |
+          DATE_ARG=""
+          if [ -n "${{ github.event.inputs.report_date }}" ]; then
+            DATE_ARG="--date ${{ github.event.inputs.report_date }}"
+          fi
+          python agent/send_cash_report.py $DATE_ARG

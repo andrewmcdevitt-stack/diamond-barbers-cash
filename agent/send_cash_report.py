@@ -25,7 +25,7 @@ RECON_DIR = DATA_DIR / "reconciliation"
 
 DARWIN_TZ  = timezone(timedelta(hours=9, minutes=30))
 EMAIL_FROM = "claude@diamondbarbers.com.au"
-EMAIL_TO   = "claude@diamondbarbers.com.au"
+EMAIL_TO   = "admin@diamondbarbers.com.au"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "mail.diamondbarbers.com.au")
 EMAIL_PASS = os.environ.get("EMAIL_PASSWORD", "")
 
@@ -196,10 +196,10 @@ def send_report(date_str, locations):
         print(f"  ERROR: Email failed: {e}")
 
 
-def run():
-    today_darwin     = datetime.now(DARWIN_TZ).date()
-    yesterday_darwin = today_darwin - timedelta(days=1)
-    date_str         = yesterday_darwin.strftime("%Y-%m-%d")
+def run(date_str=None):
+    if not date_str:
+        today_darwin = datetime.now(DARWIN_TZ).date()
+        date_str     = (today_darwin - timedelta(days=1)).strftime("%Y-%m-%d")
 
     recon_file = RECON_DIR / f"{date_str}.json"
     if not recon_file.exists():
@@ -222,4 +222,8 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--date", help="Date to report on (YYYY-MM-DD). Defaults to yesterday.")
+    args = parser.parse_args()
+    run(args.date)
