@@ -38,9 +38,13 @@ GHL_HEADERS     = {
     "Content-Type":  "application/json",
 }
 
-FORM_ID   = "3NbAwhSXgRjJFJNX0diN"
-DARWIN_TZ = timezone(timedelta(hours=9, minutes=30))
-CAIRNS_TZ = timezone(timedelta(hours=10))
+FORM_ID          = "3NbAwhSXgRjJFJNX0diN"
+DARWIN_TZ        = timezone(timedelta(hours=9, minutes=30))
+CAIRNS_TZ        = timezone(timedelta(hours=10))
+
+# GHL form field IDs (inspect via debug run 2026-07-30)
+FIELD_TILL_TOTAL = "YOQZYVnDtcJ7xeUuQy1C"  # numeric float
+FIELD_SUBLOC     = "fgtUCQU1XqnQIEO02bwd"   # sub-location name (e.g. "CBD", "Casuarina")
 
 ACCOUNTS = [
     {
@@ -200,8 +204,6 @@ def ghl_get_form_submissions(date_str):
             print(f"  WARNING: Form submissions fetch failed {r.status_code}: {r.text[:200]}")
             break
         data  = r.json()
-        print(f"  DEBUG raw response keys: {list(data.keys())}")
-        print(f"  DEBUG raw response (first 500 chars): {str(data)[:500]}")
         batch = data.get("submissions", [])
         submissions.extend(batch)
         if len(batch) < 100:
@@ -219,18 +221,23 @@ def parse_submission(sub):
     counted_cash = None
     submitted_at = sub.get("createdAt")
 
-    print(f"    Raw others: {json.dumps(others, indent=2, default=str)}")
+    # Cash: read the numeric till_total field directly
+    raw_cash = others.get(FIELD_TILL_TOTAL)
+    if raw_cash is not None:
+        try:
+            counted_cash = float(str(raw_cash).strip())
+        except (ValueError, TypeError):
+            pass
 
-    for key, val in others.items():
-        if isinstance(val, str) and val.strip() in ALL_LOCATION_NAMES:
-            location = val.strip()
-            continue
-        key_lower = key.lower()
-        if any(x in key_lower for x in ("cash", "counted", "amount", "till")):
-            try:
-                counted_cash = float(re.sub(r"[^\d.]", "", str(val)))
-            except (ValueError, TypeError):
-                pass
+    # Location: match the sub-location dropdown value as a substring
+    # against known location names (e.g. "CBD" → "Diamond Barbers - DARWIN CBD")
+    subloc = str(others.get(FIELD_SUBLOC, "")).strip()
+    if subloc:
+        subloc_lower = subloc.lower()
+        for loc_name in ALL_LOCATION_NAMES:
+            if subloc_lower in loc_name.lower():
+                location = loc_name
+                break
 
     return location, counted_cash, submitted_at
 
