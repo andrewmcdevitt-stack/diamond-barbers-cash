@@ -2,77 +2,77 @@
   "date": "2026-07-29",
   "locations": {
     "Diamond Barbers - COOLALINGA": {
-      "fresha_expected": 423.0,
+      "fresha_expected": 58.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers - BELLAMACK": {
-      "fresha_expected": 423.0,
+      "fresha_expected": 0.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers - YARRAWONGA": {
-      "fresha_expected": 423.0,
+      "fresha_expected": 50.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers - CASUARINA": {
-      "fresha_expected": 423.0,
+      "fresha_expected": 175.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers - DARWIN CBD": {
-      "fresha_expected": 423.0,
+      "fresha_expected": 70.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers - PARAP": {
-      "fresha_expected": 423.0,
+      "fresha_expected": 110.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers - DELUXE": {
-      "fresha_expected": 423.0,
+      "fresha_expected": 0.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers Rising Sun": {
-      "fresha_expected": 305.0,
+      "fresha_expected": 0.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers Showgrounds": {
-      "fresha_expected": 305.0,
+      "fresha_expected": 125.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers Northern Beaches": {
-      "fresha_expected": 305.0,
+      "fresha_expected": 90.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
     },
     "Diamond Barbers Wulguru": {
-      "fresha_expected": 305.0,
+      "fresha_expected": 90.0,
       "counted": null,
       "variance": null,
       "submitted_at": null,
