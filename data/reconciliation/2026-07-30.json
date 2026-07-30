@@ -25,16 +25,24 @@
     "Diamond Barbers - CASUARINA": {
       "fresha_expected": 0.0,
       "counted": 458.95,
-      "variance": 458.95,
+      "variance": 258.95,
       "submitted_at": "2026-07-30T00:24:59.393Z",
-      "status": "variance"
+      "status": "variance",
+      "till_total": 458.95,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": 258.95
     },
     "Diamond Barbers - DARWIN CBD": {
       "fresha_expected": 0.0,
       "counted": 304.25,
-      "variance": 304.25,
+      "variance": 104.25,
       "submitted_at": "2026-07-29T22:40:38.018Z",
-      "status": "variance"
+      "status": "variance",
+      "till_total": 304.25,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": 104.25
     },
     "Diamond Barbers - PARAP": {
       "fresha_expected": 0.0,
