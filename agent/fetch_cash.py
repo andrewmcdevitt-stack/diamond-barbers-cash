@@ -41,9 +41,10 @@ FORM_ID          = "3NbAwhSXgRjJFJNX0diN"
 DARWIN_TZ        = timezone(timedelta(hours=9, minutes=30))
 CAIRNS_TZ        = timezone(timedelta(hours=10))
 
-# GHL form field IDs (inspect via debug run 2026-07-30)
-FIELD_TILL_TOTAL = "YOQZYVnDtcJ7xeUuQy1C"  # numeric float
-FIELD_SUBLOC     = "fgtUCQU1XqnQIEO02bwd"   # sub-location name (e.g. "CBD", "Casuarina")
+# GHL form field IDs (confirmed via debug runs 2026-07-30)
+FIELD_TILL_TOTAL  = "GE1Ur4QbYIAFah2fYiMx"   # "till_total" — what barber typed as their count
+FIELD_SUBLOC_NT   = "fgtUCQU1XqnQIEO02bwd"   # NT sub-location (e.g. "CBD", "Casuarina")
+FIELD_SUBLOC_QLD  = "sGwpCs0TJqNGMkpDQ1BC"   # QLD sub-location (e.g. "Night Markets", "Showgrounds")
 
 ACCOUNTS = [
     {
@@ -220,17 +221,19 @@ def parse_submission(sub):
     counted_cash = None
     submitted_at = sub.get("createdAt")
 
-    # Cash: read the numeric till_total field directly
+    # Cash: till_total field (what barber typed as their count)
     raw_cash = others.get(FIELD_TILL_TOTAL)
     if raw_cash is not None:
         try:
-            counted_cash = float(str(raw_cash).strip())
+            counted_cash = float(re.sub(r"[^\d.]", "", str(raw_cash)))
         except (ValueError, TypeError):
             pass
 
-    # Location: match the sub-location dropdown value as a substring
-    # against known location names (e.g. "CBD" → "Diamond Barbers - DARWIN CBD")
-    subloc = str(others.get(FIELD_SUBLOC, "")).strip()
+    # Location: check both NT and QLD sub-location fields, match as substring
+    subloc = (
+        str(others.get(FIELD_SUBLOC_NT, "")).strip()
+        or str(others.get(FIELD_SUBLOC_QLD, "")).strip()
+    )
     if subloc:
         subloc_lower = subloc.lower()
         for loc_name in ALL_LOCATION_NAMES:
@@ -456,9 +459,7 @@ def reprocess(date_str):
                 submission_map[loc] = {"counted": cash, "submitted_at": ts}
             print(f"  Submission: {loc} = ${cash:.2f} at {ts}")
         else:
-            others = sub.get("others", {})
             print(f"  WARNING: Could not parse submission id={sub.get('id')} (loc={loc}, cash={cash})")
-            print(f"    subloc_field={others.get(FIELD_SUBLOC)!r}  str_vals={ {k:v for k,v in others.items() if isinstance(v,str) and len(str(v))<50} }")
 
     for loc_name, entry in recon["locations"].items():
         sub_data = submission_map.get(loc_name)
