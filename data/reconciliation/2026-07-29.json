@@ -3,8 +3,8 @@
   "locations": {
     "Diamond Barbers - COOLALINGA": {
       "fresha_expected": 58.0,
-      "counted": 258.0,
-      "variance": 200.0,
+      "counted": 200.0,
+      "variance": 142.0,
       "submitted_at": "2026-07-29T08:34:24.025Z",
       "status": "variance"
     },
@@ -24,8 +24,8 @@
     },
     "Diamond Barbers - CASUARINA": {
       "fresha_expected": 175.0,
-      "counted": 290.0,
-      "variance": 115.0,
+      "counted": 200.0,
+      "variance": 25.0,
       "submitted_at": "2026-07-28T23:37:39.147Z",
       "status": "variance"
     },
@@ -59,17 +59,17 @@
     },
     "Diamond Barbers Showgrounds": {
       "fresha_expected": 0.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 460.0,
+      "variance": 460.0,
+      "submitted_at": "2026-07-29T08:01:47.534Z",
+      "status": "variance"
     },
     "Diamond Barbers Northern Beaches": {
       "fresha_expected": 90.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 200.0,
+      "variance": 110.0,
+      "submitted_at": "2026-07-29T07:44:48.293Z",
+      "status": "variance"
     },
     "Diamond Barbers Wulguru": {
       "fresha_expected": 115.0,
@@ -80,10 +80,10 @@
     },
     "Diamond Barbers Night Markets": {
       "fresha_expected": 110.0,
-      "counted": null,
-      "variance": null,
-      "submitted_at": null,
-      "status": "not_submitted"
+      "counted": 565.0,
+      "variance": 455.0,
+      "submitted_at": "2026-07-29T12:00:47.890Z",
+      "status": "variance"
     }
   }
 }
