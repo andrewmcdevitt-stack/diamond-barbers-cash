@@ -453,6 +453,7 @@ def reprocess(date_str):
     submissions = ghl_get_form_submissions(date_str)
     submission_map = {}
     for sub in submissions:
+        print(f"  DEBUG others: {sub.get('others', {})}")
         loc, cash, ts = parse_submission(sub)
         if loc and cash is not None:
             if loc not in submission_map or (ts or "") > (submission_map[loc]["submitted_at"] or ""):
