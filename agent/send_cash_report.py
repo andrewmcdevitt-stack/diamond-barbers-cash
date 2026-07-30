@@ -62,15 +62,16 @@ def fmt_variance(v):
 
 
 def status_cell(status):
+    s = "padding:8px 12px 8px 6px;text-align:center;"
     if status == "match":
-        return '<td style="padding:10px 12px;text-align:center;"><span style="color:#22c55e;font-weight:700;">&#10003; Match</span></td>'
+        return f'<td style="{s}"><span style="color:#16a34a;font-weight:600;">&#10003; Match</span></td>'
     if status == "variance":
-        return '<td style="padding:10px 12px;text-align:center;"><span style="color:#ef4444;font-weight:700;">&#9888; Variance</span></td>'
+        return f'<td style="{s}"><span style="color:#dc2626;font-weight:600;">&#9888; Variance</span></td>'
     if status == "not_reset":
-        return '<td style="padding:10px 12px;text-align:center;"><span style="color:#f97316;font-weight:700;">&#9888; Not reset</span></td>'
+        return f'<td style="{s}"><span style="color:#ea580c;font-weight:600;">&#9888; Not reset</span></td>'
     if status == "not_submitted":
-        return '<td style="padding:10px 12px;text-align:center;"><span style="color:#f59e0b;font-weight:700;">&#10007; Not submitted</span></td>'
-    return '<td style="padding:10px 12px;text-align:center;"><span style="color:#888;font-weight:700;">&#10007; Fetch error</span></td>'
+        return f'<td style="{s}"><span style="color:#d97706;font-weight:600;">&#10007; Not submitted</span></td>'
+    return f'<td style="{s}"><span style="color:#9ca3af;font-weight:600;">&#10007; Fetch error</span></td>'
 
 
 def build_html(date_str, locations):
@@ -109,59 +110,59 @@ def build_html(date_str, locations):
             reset_badge = ' <span style="font-size:10px;color:#f97316;font-weight:600;">(no reset)</span>'
 
         rows += f"""
-        <tr style="border-bottom:1px solid #2a2a2a;">
-          <td style="padding:10px 12px;color:#ffffff;font-size:13px;">{loc_name}{reset_badge}</td>
-          <td style="padding:10px 12px;text-align:right;color:#888;font-size:13px;font-variant-numeric:tabular-nums;">{fmt_currency(expected)}</td>
-          <td style="padding:10px 12px;text-align:right;color:#888;font-size:12px;font-variant-numeric:tabular-nums;">{fmt_currency(till_total)}</td>
-          <td style="padding:10px 12px;text-align:right;color:#ffffff;font-size:13px;font-variant-numeric:tabular-nums;">{fmt_currency(safe_dep)}</td>
-          <td style="padding:10px 12px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;{var_color}">{fmt_variance(variance)}</td>
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:8px 8px 8px 12px;color:#111827;font-size:13px;">{loc_name}{reset_badge}</td>
+          <td style="padding:8px 6px;text-align:right;color:#6b7280;font-size:13px;font-variant-numeric:tabular-nums;">{fmt_currency(expected)}</td>
+          <td style="padding:8px 6px;text-align:right;color:#9ca3af;font-size:12px;font-variant-numeric:tabular-nums;">{fmt_currency(till_total)}</td>
+          <td style="padding:8px 6px;text-align:right;color:#111827;font-size:13px;font-variant-numeric:tabular-nums;">{fmt_currency(safe_dep)}</td>
+          <td style="padding:8px 6px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;{var_color}">{fmt_variance(variance)}</td>
           {status_cell(status)}
         </tr>"""
 
     return f"""<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
-<body style="margin:0;padding:0;background:#000000;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;">
+<body style="margin:0;padding:0;background:#f9fafb;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;">
 <div style="max-width:680px;margin:0 auto;padding:32px 16px;">
 
   <div style="margin-bottom:24px;">
-    <div style="font-size:22px;font-weight:700;color:#ffffff;">Cash Reconciliation</div>
-    <div style="font-size:13px;color:#888888;margin-top:4px;">Diamond Barbers &nbsp;·&nbsp; {display_date}</div>
+    <div style="font-size:22px;font-weight:700;color:#111827;">Cash Reconciliation</div>
+    <div style="font-size:13px;color:#6b7280;margin-top:4px;">Diamond Barbers &nbsp;·&nbsp; {display_date}</div>
   </div>
 
   <table style="width:100%;border-collapse:collapse;margin-bottom:24px;">
     <tr>
       <td style="padding:0 8px 0 0;width:33%;">
-        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px 20px;">
-          <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Matched</div>
-          <div style="font-size:26px;font-weight:700;color:#22c55e;">{matched}</div>
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Matched</div>
+          <div style="font-size:26px;font-weight:700;color:#16a34a;">{matched}</div>
         </div>
       </td>
       <td style="padding:0 4px;width:33%;">
-        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px 20px;">
-          <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Variances</div>
-          <div style="font-size:26px;font-weight:700;color:{'#ef4444' if variances else '#888888'};">{variances}</div>
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Variances</div>
+          <div style="font-size:26px;font-weight:700;color:{'#dc2626' if variances else '#9ca3af'};">{variances}</div>
         </div>
       </td>
       <td style="padding:0 0 0 8px;width:33%;">
-        <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;padding:16px 20px;">
-          <div style="font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Not Submitted</div>
-          <div style="font-size:26px;font-weight:700;color:{'#f59e0b' if missing else '#888888'};">{missing}</div>
+        <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 20px;">
+          <div style="font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.07em;margin-bottom:6px;">Not Submitted</div>
+          <div style="font-size:26px;font-weight:700;color:{'#d97706' if missing else '#9ca3af'};">{missing}</div>
         </div>
       </td>
     </tr>
   </table>
 
-  <div style="background:#1a1a1a;border:1px solid #2a2a2a;border-radius:12px;overflow:hidden;margin-bottom:24px;">
+  <div style="background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;margin-bottom:24px;">
     <table style="width:100%;border-collapse:collapse;">
       <thead>
-        <tr style="border-bottom:1px solid #333333;">
-          <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Location</th>
-          <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Fresha</th>
-          <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Till</th>
-          <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Banked</th>
-          <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Variance</th>
-          <th style="padding:10px 12px;text-align:center;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Status</th>
+        <tr style="border-bottom:1px solid #e5e7eb;background:#f9fafb;">
+          <th style="padding:8px 8px 8px 12px;text-align:left;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Location</th>
+          <th style="padding:8px 6px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Fresha</th>
+          <th style="padding:8px 6px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Till</th>
+          <th style="padding:8px 6px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Banked</th>
+          <th style="padding:8px 6px;text-align:right;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Variance</th>
+          <th style="padding:8px 12px 8px 6px;text-align:center;font-size:11px;color:#6b7280;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Status</th>
         </tr>
       </thead>
       <tbody>{rows}
@@ -169,7 +170,7 @@ def build_html(date_str, locations):
     </table>
   </div>
 
-  <div style="font-size:11px;color:#444444;text-align:center;">
+  <div style="font-size:11px;color:#9ca3af;text-align:center;">
     Diamond Barbers &nbsp;·&nbsp; Daily Cash Reconciliation &nbsp;·&nbsp; {display_date}
   </div>
 
