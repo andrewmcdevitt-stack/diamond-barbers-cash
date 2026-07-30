@@ -41,8 +41,11 @@ FORM_ID          = "3NbAwhSXgRjJFJNX0diN"
 DARWIN_TZ        = timezone(timedelta(hours=9, minutes=30))
 CAIRNS_TZ        = timezone(timedelta(hours=10))
 
+TILL_FLOAT = 200.0  # standard float left in till after reset
+
 # GHL form field IDs (confirmed via debug runs 2026-07-30)
-FIELD_TILL_TOTAL  = "GE1Ur4QbYIAFah2fYiMx"   # "till_total" — what barber typed as their count
+FIELD_TILL_TOTAL  = "GE1Ur4QbYIAFah2fYiMx"   # till total barber counted
+FIELD_RESET_TILL  = "cpiH5sh78VOyzKjilAzp"   # "Did you reset to $200?" → ['Yes'] or ['No']
 FIELD_SUBLOC_NT   = "fgtUCQU1XqnQIEO02bwd"   # NT sub-location (e.g. "CBD", "Casuarina")
 FIELD_SUBLOC_QLD  = "sGwpCs0TJqNGMkpDQ1BC"   # QLD sub-location (e.g. "Night Markets", "Showgrounds")
 
@@ -215,19 +218,27 @@ def ghl_get_form_submissions(date_str):
 
 
 def parse_submission(sub):
-    """Extract (location_name, counted_cash, submitted_at) from a GHL form submission."""
+    """Extract (location, till_total, reset_done, submitted_at) from a GHL form submission."""
     others       = sub.get("others", {})
     location     = None
-    counted_cash = None
+    till_total   = None
+    reset_done   = True   # default: assume reset if field missing (old submissions)
     submitted_at = sub.get("createdAt")
 
-    # Cash: till_total field (what barber typed as their count)
+    # Till total
     raw_cash = others.get(FIELD_TILL_TOTAL)
     if raw_cash is not None:
         try:
-            counted_cash = float(re.sub(r"[^\d.]", "", str(raw_cash)))
+            till_total = float(re.sub(r"[^\d.]", "", str(raw_cash)))
         except (ValueError, TypeError):
             pass
+
+    # Reset field — returns a list e.g. ['Yes'] or ['No']
+    reset_raw = others.get(FIELD_RESET_TILL)
+    if isinstance(reset_raw, list) and reset_raw:
+        reset_done = reset_raw[0].strip().lower() == "yes"
+    elif isinstance(reset_raw, str):
+        reset_done = reset_raw.strip().lower() == "yes"
 
     # Location: check both NT and QLD sub-location fields, match as substring
     subloc = (
@@ -241,7 +252,17 @@ def parse_submission(sub):
                 location = loc_name
                 break
 
-    return location, counted_cash, submitted_at
+    return location, till_total, reset_done, submitted_at
+
+
+def get_prev_ending_till(date_str):
+    """Return {loc_name: ending_till} from the previous day's recon file."""
+    prev_date  = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
+    prev_recon = load_recon(prev_date)
+    return {
+        loc: entry.get("ending_till", TILL_FLOAT)
+        for loc, entry in prev_recon.get("locations", {}).items()
+    }
 
 
 # ── Fresha cash fetch ─────────────────────────────────────────────────────────
@@ -334,25 +355,76 @@ async def fetch_cash_for_account(account, page, date_str, group_filter):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
+def build_submission_map(submissions, date_str):
+    """Parse submissions and return {loc: {till_total, reset_done, ending_till, safe_deposit, submitted_at}}."""
+    prev_ending = get_prev_ending_till(date_str)
+    raw_map = {}
+    for sub in submissions:
+        loc, till_total, reset_done, ts = parse_submission(sub)
+        if loc and till_total is not None:
+            if loc not in raw_map or (ts or "") > (raw_map[loc]["submitted_at"] or ""):
+                raw_map[loc] = {"till_total": till_total, "reset_done": reset_done, "submitted_at": ts}
+            print(f"  Submission: {loc} till=${till_total:.2f} reset={reset_done} at {ts}")
+        else:
+            print(f"  WARNING: Could not parse submission id={sub.get('id')} (loc={loc}, till={till_total})")
+
+    result = {}
+    for loc, d in raw_map.items():
+        till    = d["till_total"]
+        reset   = d["reset_done"]
+        prev    = prev_ending.get(loc, TILL_FLOAT)
+        safe    = round(till - prev, 2)
+        ending  = TILL_FLOAT if reset else till
+        result[loc] = {
+            "till_total":   till,
+            "reset_done":   reset,
+            "ending_till":  ending,
+            "safe_deposit": safe,
+            "submitted_at": d["submitted_at"],
+        }
+    return result
+
+
+def build_recon_entry(fresha_cash, sub_data):
+    """Build a reconciliation dict for one location."""
+    if sub_data is None:
+        return {
+            "fresha_expected": fresha_cash,
+            "till_total":      None,
+            "reset_done":      None,
+            "ending_till":     TILL_FLOAT,  # assume standard float for tomorrow
+            "safe_deposit":    None,
+            "variance":        None,
+            "submitted_at":    None,
+            "status":          "not_submitted",
+        }
+    safe     = sub_data["safe_deposit"]
+    variance = round(safe - fresha_cash, 2) if fresha_cash is not None else None
+    status   = (
+        "not_reset"  if not sub_data["reset_done"]
+        else "match"    if variance == 0.0
+        else "variance" if variance is not None
+        else "not_submitted"
+    )
+    return {
+        "fresha_expected": fresha_cash,
+        "till_total":      sub_data["till_total"],
+        "reset_done":      sub_data["reset_done"],
+        "ending_till":     sub_data["ending_till"],
+        "safe_deposit":    safe,
+        "variance":        variance,
+        "submitted_at":    sub_data["submitted_at"],
+        "status":          status,
+    }
+
+
 async def run(group_filter):
     from playwright.async_api import async_playwright
     today_darwin = datetime.now(DARWIN_TZ).strftime("%Y-%m-%d")
 
-    # Load any reconciliation data already written by a previous run today
-    recon = load_recon(today_darwin)
-
-    # Read today's form submissions
-    submissions  = ghl_get_form_submissions(today_darwin)
-    # Build map: location_name -> latest submission {counted, submitted_at}
-    submission_map = {}
-    for sub in submissions:
-        loc, cash, ts = parse_submission(sub)
-        if loc and cash is not None:
-            if loc not in submission_map or (ts or "") > (submission_map[loc]["submitted_at"] or ""):
-                submission_map[loc] = {"counted": cash, "submitted_at": ts}
-            print(f"  Submission: {loc} = ${cash:.2f} at {ts}")
-        else:
-            print(f"  WARNING: Could not parse submission id={sub.get('id')} (loc={loc}, cash={cash})")
+    recon       = load_recon(today_darwin)
+    submissions = ghl_get_form_submissions(today_darwin)
+    sub_map     = build_submission_map(submissions, today_darwin)
 
     async with async_playwright() as p:
         for account in ACCOUNTS:
@@ -371,55 +443,34 @@ async def run(group_filter):
             cash_results = await fetch_cash_for_account(account, page, today, group_filter)
 
             print(f"\n  Pushing cash data to GHL...")
-            for loc_name, cash in cash_results.items():
-                if cash is None:
+            for loc_name, fresha_cash in cash_results.items():
+                if fresha_cash is None:
                     print(f"    SKIP  {loc_name}  (error reading cash)")
-                    # Still record fetch error in reconciliation
-                    sub_data = submission_map.get(loc_name, {})
-                    recon["locations"][loc_name] = {
-                        "fresha_expected": None,
-                        "counted":         sub_data.get("counted"),
-                        "variance":        None,
-                        "submitted_at":    sub_data.get("submitted_at"),
-                        "status":          "fetch_error",
-                    }
+                    sub_data = sub_map.get(loc_name)
+                    entry = build_recon_entry(None, sub_data)
+                    entry["status"] = "fetch_error"
+                    recon["locations"][loc_name] = entry
                     continue
 
-                # Push to GHL
                 try:
-                    result = ghl_update_cash(loc_name, cash)
-                    status = "no_record" if result == "no_record" else "updated"
-                    print(f"    {'SKIP' if result == 'no_record' else 'OK  '}  {loc_name:45s}  cash=${cash:.2f}")
+                    result = ghl_update_cash(loc_name, fresha_cash)
+                    print(f"    {'SKIP' if result == 'no_record' else 'OK  '}  {loc_name:45s}  cash=${fresha_cash:.2f}")
                 except Exception as e:
                     print(f"    ERROR {loc_name}: {e}")
 
                 cv_key = LOCATION_CUSTOM_VALUE_KEY.get(loc_name)
                 if cv_key:
                     try:
-                        ghl_set_custom_value(cv_key, f"{cash:.2f}")
-                        print(f"    CV    {cv_key}  = ${cash:.2f}")
+                        ghl_set_custom_value(cv_key, f"{fresha_cash:.2f}")
+                        print(f"    CV    {cv_key}  = ${fresha_cash:.2f}")
                     except Exception as e:
                         print(f"    CV ERROR {loc_name}: {e}")
 
-                # Build reconciliation entry
-                sub_data = submission_map.get(loc_name, {})
-                counted  = sub_data.get("counted")
-                variance = round(counted - cash, 2) if counted is not None else None
-                recon["locations"][loc_name] = {
-                    "fresha_expected": cash,
-                    "counted":         counted,
-                    "variance":        variance,
-                    "submitted_at":    sub_data.get("submitted_at"),
-                    "status": (
-                        "not_submitted" if counted is None
-                        else "match"    if variance == 0.0
-                        else "variance"
-                    ),
-                }
+                recon["locations"][loc_name] = build_recon_entry(fresha_cash, sub_map.get(loc_name))
 
             await bctx.close()
 
-    # Record any locations in this group that weren't reached (session missing etc.)
+    # Record any locations in this group not yet reached (session missing etc.)
     group_locs = {
         loc["name"]
         for acct in ACCOUNTS
@@ -428,14 +479,9 @@ async def run(group_filter):
     }
     for loc_name in group_locs:
         if loc_name not in recon["locations"]:
-            sub_data = submission_map.get(loc_name, {})
-            recon["locations"][loc_name] = {
-                "fresha_expected": None,
-                "counted":         sub_data.get("counted"),
-                "variance":        None,
-                "submitted_at":    sub_data.get("submitted_at"),
-                "status":          "fetch_error",
-            }
+            entry = build_recon_entry(None, sub_map.get(loc_name))
+            entry["status"] = "fetch_error"
+            recon["locations"][loc_name] = entry
 
     save_recon(today_darwin, recon)
     print(f"\nReconciliation saved: {recon_path(today_darwin)}")
@@ -451,32 +497,15 @@ def reprocess(date_str):
 
     print(f"Re-processing submissions for {date_str}...")
     submissions = ghl_get_form_submissions(date_str)
-    submission_map = {}
-    for sub in submissions:
-        print(f"  DEBUG others: {sub.get('others', {})}")
-        loc, cash, ts = parse_submission(sub)
-        if loc and cash is not None:
-            if loc not in submission_map or (ts or "") > (submission_map[loc]["submitted_at"] or ""):
-                submission_map[loc] = {"counted": cash, "submitted_at": ts}
-            print(f"  Submission: {loc} = ${cash:.2f} at {ts}")
-        else:
-            print(f"  WARNING: Could not parse submission id={sub.get('id')} (loc={loc}, cash={cash})")
+    sub_map     = build_submission_map(submissions, date_str)
 
     for loc_name, entry in recon["locations"].items():
-        sub_data = submission_map.get(loc_name)
+        sub_data = sub_map.get(loc_name)
         if sub_data:
-            fresha  = entry.get("fresha_expected")
-            counted = sub_data["counted"]
-            variance = round(counted - fresha, 2) if fresha is not None else None
-            entry["counted"]      = counted
-            entry["submitted_at"] = sub_data["submitted_at"]
-            entry["variance"]     = variance
-            entry["status"] = (
-                "match"    if variance == 0.0
-                else "variance" if variance is not None
-                else "not_submitted"
-            )
-            print(f"  Updated {loc_name}: counted=${counted}, variance={variance}, status={entry['status']}")
+            fresha = entry.get("fresha_expected")
+            new    = build_recon_entry(fresha, sub_data)
+            entry.update(new)
+            print(f"  Updated {loc_name}: safe=${sub_data['safe_deposit']:.2f} reset={sub_data['reset_done']} variance={new['variance']} status={new['status']}")
 
     save_recon(date_str, recon)
     print(f"Recon file updated: {recon_path(date_str)}")

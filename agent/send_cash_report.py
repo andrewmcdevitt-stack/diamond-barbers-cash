@@ -66,6 +66,8 @@ def status_cell(status):
         return '<td style="padding:10px 12px;text-align:center;"><span style="color:#22c55e;font-weight:700;">&#10003; Match</span></td>'
     if status == "variance":
         return '<td style="padding:10px 12px;text-align:center;"><span style="color:#ef4444;font-weight:700;">&#9888; Variance</span></td>'
+    if status == "not_reset":
+        return '<td style="padding:10px 12px;text-align:center;"><span style="color:#f97316;font-weight:700;">&#9888; Not reset</span></td>'
     if status == "not_submitted":
         return '<td style="padding:10px 12px;text-align:center;"><span style="color:#f59e0b;font-weight:700;">&#10007; Not submitted</span></td>'
     return '<td style="padding:10px 12px;text-align:center;"><span style="color:#888;font-weight:700;">&#10007; Fetch error</span></td>'
@@ -78,7 +80,7 @@ def build_html(date_str, locations):
         display_date = date_str
 
     matched   = sum(1 for d in locations.values() if d["status"] == "match")
-    variances = sum(1 for d in locations.values() if d["status"] == "variance")
+    variances = sum(1 for d in locations.values() if d["status"] in ("variance", "not_reset"))
     missing   = sum(1 for d in locations.values() if d["status"] in ("not_submitted", "fetch_error"))
     has_issues = variances > 0 or missing > 0
 
@@ -89,22 +91,29 @@ def build_html(date_str, locations):
 
     rows = ""
     for loc_name, d in ordered:
-        status   = d.get("status", "fetch_error")
-        expected = d.get("fresha_expected")
-        counted  = d.get("counted")
-        variance = d.get("variance")
+        status      = d.get("status", "fetch_error")
+        expected    = d.get("fresha_expected")
+        till_total  = d.get("till_total")
+        safe_dep    = d.get("safe_deposit") or d.get("counted")  # backward compat
+        variance    = d.get("variance")
+        reset_done  = d.get("reset_done")
 
         var_color = ""
-        if status == "variance":
+        if status in ("variance", "not_reset"):
             var_color = "color:#ef4444;"
         elif status == "match":
             var_color = "color:#22c55e;"
 
+        reset_badge = ""
+        if reset_done is False:
+            reset_badge = ' <span style="font-size:10px;color:#f97316;font-weight:600;">(no reset)</span>'
+
         rows += f"""
         <tr style="border-bottom:1px solid #2a2a2a;">
-          <td style="padding:10px 12px;color:#ffffff;font-size:13px;">{loc_name}</td>
+          <td style="padding:10px 12px;color:#ffffff;font-size:13px;">{loc_name}{reset_badge}</td>
           <td style="padding:10px 12px;text-align:right;color:#888;font-size:13px;font-variant-numeric:tabular-nums;">{fmt_currency(expected)}</td>
-          <td style="padding:10px 12px;text-align:right;color:#ffffff;font-size:13px;font-variant-numeric:tabular-nums;">{fmt_currency(counted)}</td>
+          <td style="padding:10px 12px;text-align:right;color:#888;font-size:12px;font-variant-numeric:tabular-nums;">{fmt_currency(till_total)}</td>
+          <td style="padding:10px 12px;text-align:right;color:#ffffff;font-size:13px;font-variant-numeric:tabular-nums;">{fmt_currency(safe_dep)}</td>
           <td style="padding:10px 12px;text-align:right;font-size:13px;font-variant-numeric:tabular-nums;{var_color}">{fmt_variance(variance)}</td>
           {status_cell(status)}
         </tr>"""
@@ -149,7 +158,8 @@ def build_html(date_str, locations):
         <tr style="border-bottom:1px solid #333333;">
           <th style="padding:10px 12px;text-align:left;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Location</th>
           <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Fresha</th>
-          <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Counted</th>
+          <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Till</th>
+          <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Banked</th>
           <th style="padding:10px 12px;text-align:right;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Variance</th>
           <th style="padding:10px 12px;text-align:center;font-size:11px;color:#888;text-transform:uppercase;letter-spacing:.06em;font-weight:600;">Status</th>
         </tr>
