@@ -255,12 +255,15 @@ def parse_submission(sub):
     return location, till_total, reset_done, submitted_at
 
 
-def get_prev_ending_till(date_str):
-    """Return {loc_name: ending_till} from the previous day's recon file."""
+def get_prev_state(date_str):
+    """Return {loc_name: {"ending_till": X, "accumulated_fresha": Y}} from the previous day's recon."""
     prev_date  = (datetime.strptime(date_str, "%Y-%m-%d") - timedelta(days=1)).strftime("%Y-%m-%d")
     prev_recon = load_recon(prev_date)
     return {
-        loc: entry.get("ending_till", TILL_FLOAT)
+        loc: {
+            "ending_till":        entry.get("ending_till", TILL_FLOAT),
+            "accumulated_fresha": entry.get("accumulated_fresha", 0.0),
+        }
         for loc, entry in prev_recon.get("locations", {}).items()
     }
 
@@ -355,9 +358,10 @@ async def fetch_cash_for_account(account, page, date_str, group_filter):
 
 # ── Main ──────────────────────────────────────────────────────────────────────
 
-def build_submission_map(submissions, date_str):
+def build_submission_map(submissions, date_str, prev_state=None):
     """Parse submissions and return {loc: {till_total, reset_done, ending_till, safe_deposit, submitted_at}}."""
-    prev_ending = get_prev_ending_till(date_str)
+    if prev_state is None:
+        prev_state = get_prev_state(date_str)
     raw_map = {}
     for sub in submissions:
         loc, till_total, reset_done, ts = parse_submission(sub)
@@ -372,7 +376,7 @@ def build_submission_map(submissions, date_str):
     for loc, d in raw_map.items():
         till    = d["till_total"]
         reset   = d["reset_done"]
-        prev    = prev_ending.get(loc, TILL_FLOAT)
+        prev    = prev_state.get(loc, {}).get("ending_till", TILL_FLOAT)
         safe    = round(till - prev, 2)
         ending  = TILL_FLOAT if reset else till
         result[loc] = {
@@ -385,21 +389,29 @@ def build_submission_map(submissions, date_str):
     return result
 
 
-def build_recon_entry(fresha_cash, sub_data):
+def build_recon_entry(fresha_cash, sub_data, prev_accumulated_fresha=0.0, prev_ending_till=TILL_FLOAT):
     """Build a reconciliation dict for one location."""
+    today_fresha = fresha_cash or 0.0
+
     if sub_data is None:
+        # Not submitted: accumulate Fresha cash so when they catch up the variance is correct
+        accumulated = round(prev_accumulated_fresha + today_fresha, 2)
         return {
-            "fresha_expected": fresha_cash,
-            "till_total":      None,
-            "reset_done":      None,
-            "ending_till":     TILL_FLOAT,  # assume standard float for tomorrow
-            "safe_deposit":    None,
-            "variance":        None,
-            "submitted_at":    None,
-            "status":          "not_submitted",
+            "fresha_expected":    fresha_cash,
+            "accumulated_fresha": accumulated,
+            "till_total":         None,
+            "reset_done":         None,
+            "ending_till":        prev_ending_till,  # keep last known till state
+            "safe_deposit":       None,
+            "variance":           None,
+            "submitted_at":       None,
+            "status":             "not_submitted",
         }
+
+    # Submitted: compare banked amount against all accumulated cash (missed days + today)
+    total_expected = round(prev_accumulated_fresha + today_fresha, 2)
     safe     = sub_data["safe_deposit"]
-    variance = round(safe - fresha_cash, 2) if fresha_cash is not None else None
+    variance = round(safe - total_expected, 2) if fresha_cash is not None else None
     status   = (
         "not_reset"  if not sub_data["reset_done"]
         else "match"    if variance == 0.0
@@ -407,14 +419,15 @@ def build_recon_entry(fresha_cash, sub_data):
         else "not_submitted"
     )
     return {
-        "fresha_expected": fresha_cash,
-        "till_total":      sub_data["till_total"],
-        "reset_done":      sub_data["reset_done"],
-        "ending_till":     sub_data["ending_till"],
-        "safe_deposit":    safe,
-        "variance":        variance,
-        "submitted_at":    sub_data["submitted_at"],
-        "status":          status,
+        "fresha_expected":    fresha_cash,
+        "accumulated_fresha": 0.0,
+        "till_total":         sub_data["till_total"],
+        "reset_done":         sub_data["reset_done"],
+        "ending_till":        sub_data["ending_till"],
+        "safe_deposit":        safe,
+        "variance":           variance,
+        "submitted_at":       sub_data["submitted_at"],
+        "status":             status,
     }
 
 
@@ -423,8 +436,9 @@ async def run(group_filter):
     today_darwin = datetime.now(DARWIN_TZ).strftime("%Y-%m-%d")
 
     recon       = load_recon(today_darwin)
+    prev_state  = get_prev_state(today_darwin)
     submissions = ghl_get_form_submissions(today_darwin)
-    sub_map     = build_submission_map(submissions, today_darwin)
+    sub_map     = build_submission_map(submissions, today_darwin, prev_state)
 
     async with async_playwright() as p:
         for account in ACCOUNTS:
@@ -447,7 +461,10 @@ async def run(group_filter):
                 if fresha_cash is None:
                     print(f"    SKIP  {loc_name}  (error reading cash)")
                     sub_data = sub_map.get(loc_name)
-                    entry = build_recon_entry(None, sub_data)
+                    prev     = prev_state.get(loc_name, {})
+                    entry    = build_recon_entry(None, sub_data,
+                                                 prev.get("accumulated_fresha", 0.0),
+                                                 prev.get("ending_till", TILL_FLOAT))
                     entry["status"] = "fetch_error"
                     recon["locations"][loc_name] = entry
                     continue
@@ -466,7 +483,12 @@ async def run(group_filter):
                     except Exception as e:
                         print(f"    CV ERROR {loc_name}: {e}")
 
-                recon["locations"][loc_name] = build_recon_entry(fresha_cash, sub_map.get(loc_name))
+                prev = prev_state.get(loc_name, {})
+                recon["locations"][loc_name] = build_recon_entry(
+                    fresha_cash, sub_map.get(loc_name),
+                    prev.get("accumulated_fresha", 0.0),
+                    prev.get("ending_till", TILL_FLOAT),
+                )
 
             await bctx.close()
 
@@ -479,7 +501,10 @@ async def run(group_filter):
     }
     for loc_name in group_locs:
         if loc_name not in recon["locations"]:
-            entry = build_recon_entry(None, sub_map.get(loc_name))
+            prev  = prev_state.get(loc_name, {})
+            entry = build_recon_entry(None, sub_map.get(loc_name),
+                                      prev.get("accumulated_fresha", 0.0),
+                                      prev.get("ending_till", TILL_FLOAT))
             entry["status"] = "fetch_error"
             recon["locations"][loc_name] = entry
 
@@ -496,14 +521,18 @@ def reprocess(date_str):
         return
 
     print(f"Re-processing submissions for {date_str}...")
+    prev_state  = get_prev_state(date_str)
     submissions = ghl_get_form_submissions(date_str)
-    sub_map     = build_submission_map(submissions, date_str)
+    sub_map     = build_submission_map(submissions, date_str, prev_state)
 
     for loc_name, entry in recon["locations"].items():
         sub_data = sub_map.get(loc_name)
         if sub_data:
             fresha = entry.get("fresha_expected")
-            new    = build_recon_entry(fresha, sub_data)
+            prev   = prev_state.get(loc_name, {})
+            new    = build_recon_entry(fresha, sub_data,
+                                       prev.get("accumulated_fresha", 0.0),
+                                       prev.get("ending_till", TILL_FLOAT))
             entry.update(new)
             print(f"  Updated {loc_name}: safe=${sub_data['safe_deposit']:.2f} reset={sub_data['reset_done']} variance={new['variance']} status={new['status']}")
 
