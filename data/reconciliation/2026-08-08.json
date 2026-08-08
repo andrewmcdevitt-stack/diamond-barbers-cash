@@ -1,0 +1,126 @@
+{
+  "date": "2026-08-08",
+  "locations": {
+    "Diamond Barbers - COOLALINGA": {
+      "fresha_expected": null,
+      "accumulated_fresha": 0.0,
+      "till_total": 760.0,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": 560.0,
+      "variance": null,
+      "submitted_at": "2026-08-08T08:47:35.679Z",
+      "status": "fetch_error"
+    },
+    "Diamond Barbers - BELLAMACK": {
+      "fresha_expected": null,
+      "accumulated_fresha": 0.0,
+      "till_total": 200.0,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": 0.0,
+      "variance": null,
+      "submitted_at": "2026-08-08T08:39:01.061Z",
+      "status": "fetch_error"
+    },
+    "Diamond Barbers - YARRAWONGA": {
+      "fresha_expected": null,
+      "accumulated_fresha": 0.0,
+      "till_total": 225.0,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": -95.0,
+      "variance": null,
+      "submitted_at": "2026-08-08T08:31:58.380Z",
+      "status": "fetch_error"
+    },
+    "Diamond Barbers - CASUARINA": {
+      "fresha_expected": null,
+      "accumulated_fresha": 0.0,
+      "till_total": 200.0,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": 0.0,
+      "variance": null,
+      "submitted_at": "2026-08-08T08:17:42.521Z",
+      "status": "fetch_error"
+    },
+    "Diamond Barbers - DARWIN CBD": {
+      "fresha_expected": null,
+      "accumulated_fresha": 0.0,
+      "till_total": 485.0,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": 285.0,
+      "variance": null,
+      "submitted_at": "2026-08-08T08:31:12.695Z",
+      "status": "fetch_error"
+    },
+    "Diamond Barbers - PARAP": {
+      "fresha_expected": null,
+      "accumulated_fresha": 0.0,
+      "till_total": null,
+      "reset_done": null,
+      "ending_till": 200.0,
+      "safe_deposit": null,
+      "variance": null,
+      "submitted_at": null,
+      "status": "fetch_error"
+    },
+    "Diamond Barbers - DELUXE": {
+      "fresha_expected": null,
+      "accumulated_fresha": 0.0,
+      "till_total": null,
+      "reset_done": null,
+      "ending_till": 200.0,
+      "safe_deposit": null,
+      "variance": null,
+      "submitted_at": null,
+      "status": "fetch_error"
+    },
+    "Diamond Barbers Rising Sun": {
+      "fresha_expected": 86.34,
+      "accumulated_fresha": 299.34,
+      "till_total": null,
+      "reset_done": null,
+      "ending_till": 200.0,
+      "safe_deposit": null,
+      "variance": null,
+      "submitted_at": null,
+      "status": "not_submitted"
+    },
+    "Diamond Barbers Showgrounds": {
+      "fresha_expected": 80.0,
+      "accumulated_fresha": 0.0,
+      "till_total": 960.0,
+      "reset_done": false,
+      "ending_till": 960.0,
+      "safe_deposit": 80.0,
+      "variance": 0.0,
+      "submitted_at": "2026-08-08T07:54:05.462Z",
+      "status": "not_reset"
+    },
+    "Diamond Barbers Northern Beaches": {
+      "fresha_expected": 150.0,
+      "accumulated_fresha": 0.0,
+      "till_total": 360.0,
+      "reset_done": false,
+      "ending_till": 360.0,
+      "safe_deposit": 160.0,
+      "variance": 10.0,
+      "submitted_at": "2026-08-08T08:01:29.615Z",
+      "status": "not_reset"
+    },
+    "Diamond Barbers Wulguru": {
+      "fresha_expected": 40.0,
+      "accumulated_fresha": 40.0,
+      "till_total": null,
+      "reset_done": null,
+      "ending_till": 200.0,
+      "safe_deposit": null,
+      "variance": null,
+      "submitted_at": null,
+      "status": "not_submitted"
+    }
+  }
+}
