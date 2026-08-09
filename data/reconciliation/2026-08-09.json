@@ -121,6 +121,17 @@
       "variance": null,
       "submitted_at": null,
       "status": "not_submitted"
+    },
+    "Diamond Barbers Night Markets": {
+      "fresha_expected": 48.0,
+      "accumulated_fresha": 0.0,
+      "till_total": 200.0,
+      "reset_done": true,
+      "ending_till": 200.0,
+      "safe_deposit": -290.0,
+      "variance": -438.0,
+      "submitted_at": "2026-08-09T10:29:43.414Z",
+      "status": "variance"
     }
   }
 }
