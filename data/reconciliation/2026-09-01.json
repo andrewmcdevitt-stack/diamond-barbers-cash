@@ -2,8 +2,8 @@
   "date": "2026-09-01",
   "locations": {
     "Diamond Barbers - COOLALINGA": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 70.0,
+      "accumulated_fresha": 70.0,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
@@ -35,8 +35,8 @@
       "status": "not_submitted"
     },
     "Diamond Barbers - CASUARINA": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 90.0,
+      "accumulated_fresha": 90.0,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
@@ -46,8 +46,8 @@
       "status": "not_submitted"
     },
     "Diamond Barbers - DARWIN CBD": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 235.0,
+      "accumulated_fresha": 235.0,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
@@ -57,8 +57,8 @@
       "status": "not_submitted"
     },
     "Diamond Barbers - PARAP": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 88.0,
+      "accumulated_fresha": 88.0,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
@@ -79,8 +79,8 @@
       "status": "not_submitted"
     },
     "Diamond Barbers Rising Sun": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 517.85,
+      "accumulated_fresha": 517.85,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
@@ -90,8 +90,8 @@
       "status": "not_submitted"
     },
     "Diamond Barbers Showgrounds": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 80.0,
+      "accumulated_fresha": 80.0,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
@@ -112,8 +112,8 @@
       "status": "not_submitted"
     },
     "Diamond Barbers Wulguru": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 517.85,
+      "accumulated_fresha": 517.85,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
