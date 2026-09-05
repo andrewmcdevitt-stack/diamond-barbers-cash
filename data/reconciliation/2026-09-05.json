@@ -2,8 +2,8 @@
   "date": "2026-09-05",
   "locations": {
     "Diamond Barbers Night Markets": {
-      "fresha_expected": 0.0,
-      "accumulated_fresha": 0.0,
+      "fresha_expected": 75.0,
+      "accumulated_fresha": 75.0,
       "till_total": null,
       "reset_done": null,
       "ending_till": 200.0,
