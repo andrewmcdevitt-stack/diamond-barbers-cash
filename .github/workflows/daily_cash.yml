@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '45 8 * * *'   # 6:15 PM Darwin / 6:45 PM Cairns — regular shops
     - cron: '15 11 * * *'  # 9:15 PM Cairns — Night Markets only
-    - cron: '30 21 * * *'  # 7:00 AM Darwin (next morning) — send summary report
+    # - cron: '30 21 * * *'  # 7:00 AM Darwin (next morning) — send summary report (disabled)
   workflow_dispatch:
     inputs:
       group:
